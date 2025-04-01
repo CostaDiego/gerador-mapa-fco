@@ -6,132 +6,168 @@ from PIL import Image as Img
 from matplotlib import pyplot as plt
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
-DEFAULT_FPS = 30  # Fps of the output video
-DEFAULT_VIDEO_LENGTH = 6  # Length of the output video
-DEFAULT_OUT_VID_HEIGHT = 1000  # Vertical size (in pixels) of the output video, preserves the original aspect ratio
-NUM_OF_ITERATIONS_BETWEEN_RENDER = 15  # The number of iterations between rendering in runtime
+FPS_PADRAO = 30  # Frames por segundo do vídeo de saída
+TAMANHO_PADRAO_VIDEO = 15  # Tamanho em segundos do vídeo de saída
+ALTURA_PADRAO_VIDEO = 1000  # Tamanho vertica do vídeo de saída, preserva a proporção
+ITERACOES_ENTRE_RENDERIZACAO = (
+    15  # Número de iterações entra cada renderização durante a execução.
+)
 
 
-def save_collapsed_wave(coefficient_matrix: np.ndarray, input_path: str, patterns: np.ndarray) -> np.ndarray:
+def salvar_onda_colapsada(
+    matriz_coeficientes: np.ndarray, caminho_entrada: str, padroes: np.ndarray
+) -> np.ndarray:
     """
-    Saves an image of the collapsed wave, with width 1000 and preserves the aspect ratio
-    :param coefficient_matrix: The wave matrix
-    :param input_path: The path of the input_examples image
-    :param patterns: The numpy array of the patterns
-    :return: An image of the collapsed wave
+    Salva uma imagem da onda colapsada, mantendo a proporção da imagem de entrada.
+
+    Parametros:
+    - matriz_coeficientes: A matriz de coeficientes da onda
+    - caminho_entrada: O caminho da imagem de entrada
+    - padroes: O array numpy dos padrões
+
+    Retorna:
+    - Uma imagem da onda colapsada
     """
-    # Get the dimensions of the output image
-    w, h, _ = coefficient_matrix.shape
-    num_channels = patterns[0].ndim
+    # Extrai as dimensões da matriz de coeficientes
+    largura, altura, _ = matriz_coeficientes.shape
+    num_channels = padroes[0].ndim
 
-    # Create the output image as an array
-    final_image = patterns[np.where(coefficient_matrix[:, :])[2]][:, 0, 0, :].reshape(w, h, num_channels)
+    # Croia a imagem de saida como um array
+    imagem_final = padroes[np.where(matriz_coeficientes[:, :])[2]][:, 0, 0, :].reshape(
+        largura, altura, num_channels
+    )
 
-    # Calculate the upscale_parameter
-    upscale_parameter = (DEFAULT_OUT_VID_HEIGHT, (min(w, h) * DEFAULT_OUT_VID_HEIGHT) // max(w, h))
+    # Calula o parametro de upscale para manter a proporção da imagem de entrada
+    parametro_upscale = (
+        ALTURA_PADRAO_VIDEO,
+        (min(largura, altura) * ALTURA_PADRAO_VIDEO) // max(largura, altura),
+    )
 
-    # Create the image from the array and up sample it
-    im = Img.fromarray(final_image).resize(upscale_parameter, resample=Img.NONE)
+    # Cria uma imagem PIL a partir do array numpy
+    img = Img.fromarray(imagem_final).resize(parametro_upscale, resample=Img.NONE)
 
-    # Save the image
-    file_name = f"mapa_{ntpath.basename(input_path)}"
-    im.save(file_name)
-    return final_image
+    # Salva a imagem
+    nome_arquivo = f"mapa_{ntpath.basename(caminho_entrada)}"
+    img.save(nome_arquivo)
+
+    return imagem_final
 
 
-def show_iteration(iteration: int, patterns: np.ndarray, coefficient_matrix: np.ndarray) -> np.ndarray:
+def mostrar_iteracao(
+    iteracao: int, padroes: np.ndarray, matriz_coeficientes: np.ndarray
+) -> np.ndarray:
     """
-    Shows the state of the wave in this iteration of the algorithm
-    :param iteration: The iteration of the algorithm
-    :param patterns: The ndarray of the patterns
-    :param coefficient_matrix: The ndarray representing the wave
-    :return: A ndarray representing the image of the wave in the current iterations, all un-collapsed cells are with the
-    mean color of all the valid patterns for the cell.
+    Mostra o estado da onda na iteração atual do algoritmo.
+
+    Parametros:
+    - iteracao: A iteração atual do algoritmo
+    - padroes: O array numpy dos padrões.
+    - matriz_coeficientes: A matriz de coeficientes representando a onda
+
+    Retorna:
+    - Um array numpy representando a imagem da onda na iteração atual, todas as céluals não colapsadas estão com a
+    cor resultante da média dos padrões válidos para a célula.
     """
-    res = image_from_coefficients(coefficient_matrix, patterns)
-    w, h, _ = res.shape
+    res = converter_coeficientes_para_imagem(matriz_coeficientes, padroes)
+    largura, altura, _ = res.shape
     fig, axs = plt.subplots()
     axs.imshow(res)
-    collapsed = num_of_collapsed_cells(coefficient_matrix)
-    axs.set_title(f"cells collapsed: {collapsed} out of {w * h}, done {round(100 * collapsed / (w * h), 2)}%")
-    fig.suptitle(f"iteration number: {iteration}")
+    celulas_colapsadas = num_celulas_colapsadas(matriz_coeficientes)
+    axs.set_title(
+        f"Células colapsadas: {celulas_colapsadas} de {largura * altura}. Finalizados {round(100 * celulas_colapsadas / (largura * altura), 2)}%"
+    )
+    fig.suptitle(f"Iteração número: {iteracao}")
     plt.show()
+
     return res
 
 
-def save_iterations_to_video(images: List[np.ndarray], input_path: str) -> None:
+def salvar_iteracoes_em_video(imagens: List[np.ndarray], caminho_entrada: str) -> None:
     """
-    Saves all the images of iterations of the algorithm to a video
-    :param images: A list of ndarrays of the state of the wave during iterations of the algorithm
-    :param input_path: The path of the input_examples image
+    Salva todas as imagens das iterações do algoritmo em um vídeo.
+
+    Parametros:
+    - imagens: Uma lista de ndarrays do estado da onda durante as iterações do algoritmo
+    - caminho_entrada: O caminho da imagem de entrada
     """
-    w, h, _ = images[0].shape
+    largura, altura, _ = imagens[0].shape
 
-    # Calculate the upscale_parameter for the video
-    upscale_parameter = DEFAULT_OUT_VID_HEIGHT // max(w, h)
+    # Calculo do parametro de upscale para manter a proporção da imagem de entrada
+    parametro_upscale = ALTURA_PADRAO_VIDEO // max(largura, altura)
 
-    # Calculate the time_sample_parameter for the video, so that the output video will be in DEFAULT_FPS fps
-    time_sample_parameter = 1
-    if len(images) > DEFAULT_FPS * DEFAULT_VIDEO_LENGTH:
-        time_sample_parameter = len(images) // (DEFAULT_FPS * DEFAULT_VIDEO_LENGTH)
+    # Calcula o parametro_amostragem_tempo para selecionar os frames que vão fazer parte do vídeo
+    parametro_amostragem_tempo = 1
+    if len(imagens) > FPS_PADRAO * TAMANHO_PADRAO_VIDEO:
+        parametro_amostragem_tempo = len(imagens) // (FPS_PADRAO * TAMANHO_PADRAO_VIDEO)
 
-    # Upscale and subsample over time the images list
-    images = np.array(images)
-    images = np.kron(images[::time_sample_parameter, :, :, :], np.ones((upscale_parameter, upscale_parameter, 1)))
-    images = [images[i] for i in range(images.shape[0])]
+    # Aumenta o tamanho da imagem e seleciona um subconjunto de imagens
+    imagens = np.array(imagens)
+    imagens = np.kron(
+        imagens[::parametro_amostragem_tempo, :, :, :],
+        np.ones((parametro_upscale, parametro_upscale, 1)),
+    )
+    imagens = [imagens[i] for i in range(imagens.shape[0])]
 
-    # Save the output video
-    out_name = f"mapa_{ntpath.basename(input_path).split('.')[0]}.mp4"
-    clip = ImageSequenceClip(images, fps=DEFAULT_FPS)
-    clip.write_videofile(out_name, fps=DEFAULT_FPS)
+    # Salva o video
+    video_name = f"mapa_{ntpath.basename(caminho_entrada).split('.')[0]}.mp4"
+    clip = ImageSequenceClip(imagens, fps=FPS_PADRAO)
+    clip.write_videofile(video_name, fps=FPS_PADRAO)
 
 
-def image_from_coefficients(coefficient_matrix: np.ndarray, patterns: np.ndarray) -> np.ndarray:
+def converter_coeficientes_para_imagem(
+    matriz_coeficientes: np.ndarray, padroes: np.ndarray
+) -> np.ndarray:
     """
-    Generates an image of the state of the wave function mid-run. every cell is the mean of all valid patterns for it
-    :param coefficient_matrix: The ndarray of the wave function
-    :param patterns: The ndarray of the patterns
-    :return: The image of the state of the wave function
+    Gera uma imagem do estado da função de onda. Cada célular é inicializada com a média dos padrões válidas para ela.
+
+    Parametros:
+    - matriz_coeficientes: A matriz de coeficientes da função de onda.
+    - padroes: O array numpy dos padrões
+
+    Retorna:
+    - Uma imagem do estado da função de onda, onde cada célula é inicializada com a média dos padrões válidas para ela.
     """
-    # todo find a more efficient way to do this
-    r, c, num_patterns = coefficient_matrix.shape
 
-    # Create the resulting image of the wave function
-    res = np.empty((r, c, 3))
+    linhas, colunas, _ = matriz_coeficientes.shape
+    imagem = np.empty((linhas, colunas, 3))
 
-    pattern_edges = patterns[:, 0, 0]
+    borda_padroes = padroes[:, 0, 0]
+    
+    # Itera sobre todas as células da matriz_coeficientes
+    for linha in range(linhas):
+        for coluna in range(colunas):
+            # Para cada célula, encontre os padrões válidos nela
+            padroes_validos = np.where(matriz_coeficientes[linha, coluna])[0]
 
-    # Iterate over all cells of coefficient_matrix
-    for row in range(r):
-        for col in range(c):
-            # For each cell, find the valid patterns in it
-            valid_patterns = np.where(coefficient_matrix[row, col])[0]
+            # Seta a célula com o valor médio de todos os padrões válidos
+            imagem[linha, coluna] = np.mean(borda_padroes[padroes_validos], axis=0)
 
-            # Assign the corresponding cell in the output to be the mean of all valid patterns in the cell
-            res[row, col] = np.mean(pattern_edges[valid_patterns], axis=0)
-
-    # Return the number of collapsed cells and the result image
-    return res.astype(int)
+    return imagem.astype(int)
 
 
-def num_of_collapsed_cells(coefficient_matrix: np.ndarray) -> int:
+def num_celulas_colapsadas(matriz_coeficientes: np.ndarray) -> int:
     """
-    Calculates the number of collapsed cells in the wave matrix
-    :param coefficient_matrix: The wave matrix
-    :return: The number of collapsed cells
+    Calula o número de células colapsadas na matriz de coeficientes.
+
+    Parametros:
+    - matriz_coeficientes: A matriz de coeficientes da função de onda.
+
+    Retorna:
+    - O número de células colapsadas na matriz de coeficientes.
     """
-    return np.count_nonzero(np.sum(coefficient_matrix, axis=2) == 1)
+    return np.count_nonzero(np.sum(matriz_coeficientes, axis=2) == 1)
 
 
-def progress_bar(max_work: int, curr_work: int) -> None:
+def barra_progresso(max_work: int, curr_work: int) -> None:
     """
-    Prints a progress bar of the algorithm run to stdout
-    :param max_work: Total work to be done, in this case - number of cells to collapse
-    :param curr_work: The amount of work done so far, in this case - number of cells collapsed
+    Printa a barra de progresso de execução do algoritmo na tela.
+
+    Parametros:
+    - trabalho_total: O total de trabalho a ser feito, neste caso, número de células a serem colapsadas
+    - trabalho_atual: A quantidade de trabalho feito até agora, neste caso, número de células colapsadas
     """
-    # Calculate percentage of work done
-    percentage = int(100 * (curr_work / float(max_work)))
+    progresso = int(100 * (curr_work / float(max_work)))
 
     # Create and print the progress bar
-    bar = '█' * percentage + '-' * (100 - percentage)
-    print(f"\r|{bar}| {round(percentage, 2)}% ", end='\b')
+    bar = "█" * progresso + "-" * (100 - progresso)
+    print(f"\r|{bar}| {round(progresso, 2)}% ", end="\b")

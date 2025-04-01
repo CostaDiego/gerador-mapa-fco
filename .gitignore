@@ -172,3 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Ignore the output of the algorithm
+*.mp4
+*.png

@@ -18,4 +18,4 @@ class FuncaoOndaBase:
         Inicializa o algoritmo da função do colapson de onda. Este método agrega os padrões da imagem de entrada,
         calcula suas frequências e inicia a matriz de coeficientes.
         """
-        raise NotImplementedError("Método não implementado na classe base.")
+        raise NotImplementedError("Método não implementado")

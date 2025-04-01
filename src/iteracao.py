@@ -1,14 +1,12 @@
+from enum import Enum
 import queue
 from typing import List, Tuple, Dict, Set
 
 import numpy as np
 
-CONTRADICTION = -2
-WAVE_COLLAPSED = -1
-RUNNING = 0
+from .estado_onda import EstadoOnda
 
-
-def get_min_entropy_coordinates(coefficient_matrix: np.ndarray, frequencies: List[int]) -> Tuple[int, int, int]:
+def get_min_entropy_coordinates(coefficient_matrix: np.ndarray, frequencies: List[int]) -> Tuple[int, int, type[EstadoOnda]]:
     """
     Calculate the coordinates of the cell with the minimum entropy, and returns the row, column and the state of
     the wave (collapsed/running)
@@ -27,18 +25,18 @@ def get_min_entropy_coordinates(coefficient_matrix: np.ndarray, frequencies: Lis
     entropies[np.sum(coefficient_matrix, axis=2) == 1] = 0
 
     if np.sum(entropies) == 0:
-        return -1, -1, WAVE_COLLAPSED
+        return -1, -1, EstadoOnda.COLAPSADA
 
     # Get all indices of minimal non-zero cells
     min_indices = np.argwhere(entropies == np.amin(entropies, initial=np.max(entropies), where=entropies > 0))
 
     # Check if entropy of all cells is 0, i.e. the wave is fully collapsed
     if min_indices.shape[0] == 0:
-        return -1, -1, WAVE_COLLAPSED
+        return -1, -1, EstadoOnda.COLAPSADA
 
     # Choose a random index from the list of minimum indices
     min_index = min_indices[np.random.randint(0, min_indices.shape[0])]
-    return min_index[0], min_index[1], RUNNING
+    return min_index[0], min_index[1], EstadoOnda.EM_ANDAMENTO
 
 
 def is_cell_collapsed(coefficient_matrix: np.ndarray, cell_pos: Tuple[int, int]) -> bool:
@@ -135,7 +133,7 @@ def propagate(min_entropy_pos: Tuple[int, int],
     return coefficient_matrix
 
 
-def observe(coefficient_matrix: np.ndarray, frequencies: List[int]) -> Tuple[Tuple[int, int], np.ndarray, int]:
+def observe(coefficient_matrix: np.ndarray, frequencies: List[int]) -> Tuple[Tuple[int, int], np.ndarray, type[EstadoOnda]]:
     """
     The function preforms the 'observe' phase oof the wfc algorithm. it searches for the cell with the minimal entropy,
     and collapses it, based on possible patterns in the cell and there respective frequencies.
@@ -149,16 +147,16 @@ def observe(coefficient_matrix: np.ndarray, frequencies: List[int]) -> Tuple[Tup
     """
     # If contradiction
     if np.any(~np.any(coefficient_matrix, axis=2)):
-        return (-1, -1), coefficient_matrix, CONTRADICTION
+        return (-1, -1), coefficient_matrix, EstadoOnda.CONTRADICAO
     # Get min pos
     min_entropy_pos_x, min_entropy_pos_y, status = get_min_entropy_coordinates(coefficient_matrix, frequencies)
     min_entropy_pos = (min_entropy_pos_x, min_entropy_pos_y)
     # If fully collapsed
-    if status == WAVE_COLLAPSED:
-        return (min_entropy_pos_x, min_entropy_pos_y), coefficient_matrix, WAVE_COLLAPSED
+    if status == EstadoOnda.COLAPSADA:
+        return (min_entropy_pos_x, min_entropy_pos_y), coefficient_matrix, EstadoOnda.COLAPSADA
     # Collapse the cell at min_entropy_pos
     coefficient_matrix = collapse_single_cell(coefficient_matrix, frequencies, min_entropy_pos)
-    return min_entropy_pos, coefficient_matrix, RUNNING
+    return min_entropy_pos, coefficient_matrix, EstadoOnda.EM_ANDAMENTO
 
 
 def collapse_single_cell(coefficient_matrix: np.ndarray, frequencies: List[int],
