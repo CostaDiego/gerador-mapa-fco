@@ -6,13 +6,7 @@ from PIL import Image as Img
 from matplotlib import pyplot as plt
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
-FPS_PADRAO = 30  # Frames por segundo do vídeo de saída
-TAMANHO_PADRAO_VIDEO = 15  # Tamanho em segundos do vídeo de saída
-ALTURA_PADRAO_VIDEO = 1000  # Tamanho vertica do vídeo de saída, preserva a proporção
-ITERACOES_ENTRE_RENDERIZACAO = (
-    15  # Número de iterações entra cada renderização durante a execução.
-)
-
+from .constantes import Constantes
 
 def salvar_onda_colapsada(
     matriz_coeficientes: np.ndarray, caminho_entrada: str, padroes: np.ndarray
@@ -39,8 +33,8 @@ def salvar_onda_colapsada(
 
     # Calula o parametro de upscale para manter a proporção da imagem de entrada
     parametro_upscale = (
-        ALTURA_PADRAO_VIDEO,
-        (min(largura, altura) * ALTURA_PADRAO_VIDEO) // max(largura, altura),
+        Constantes.ALTURA_PADRAO_VIDEO,
+        (min(largura, altura) * Constantes.ALTURA_PADRAO_VIDEO) // max(largura, altura),
     )
 
     # Cria uma imagem PIL a partir do array numpy
@@ -93,12 +87,12 @@ def salvar_iteracoes_em_video(imagens: List[np.ndarray], caminho_entrada: str) -
     largura, altura, _ = imagens[0].shape
 
     # Calculo do parametro de upscale para manter a proporção da imagem de entrada
-    parametro_upscale = ALTURA_PADRAO_VIDEO // max(largura, altura)
+    parametro_upscale = Constantes.ALTURA_PADRAO_VIDEO // max(largura, altura)
 
     # Calcula o parametro_amostragem_tempo para selecionar os frames que vão fazer parte do vídeo
     parametro_amostragem_tempo = 1
-    if len(imagens) > FPS_PADRAO * TAMANHO_PADRAO_VIDEO:
-        parametro_amostragem_tempo = len(imagens) // (FPS_PADRAO * TAMANHO_PADRAO_VIDEO)
+    if len(imagens) > Constantes.FPS_PADRAO * Constantes.TAMANHO_PADRAO_VIDEO:
+        parametro_amostragem_tempo = len(imagens) // (Constantes.FPS_PADRAO * Constantes.TAMANHO_PADRAO_VIDEO)
 
     # Aumenta o tamanho da imagem e seleciona um subconjunto de imagens
     imagens = np.array(imagens)
@@ -110,8 +104,8 @@ def salvar_iteracoes_em_video(imagens: List[np.ndarray], caminho_entrada: str) -
 
     # Salva o video
     video_name = f"mapa_{ntpath.basename(caminho_entrada).split('.')[0]}.mp4"
-    clip = ImageSequenceClip(imagens, fps=FPS_PADRAO)
-    clip.write_videofile(video_name, fps=FPS_PADRAO)
+    clip = ImageSequenceClip(imagens, fps=Constantes.FPS_PADRAO)
+    clip.write_videofile(video_name, fps=Constantes.FPS_PADRAO)
 
 
 def converter_coeficientes_para_imagem(
@@ -132,7 +126,7 @@ def converter_coeficientes_para_imagem(
     imagem = np.empty((linhas, colunas, 3))
 
     borda_padroes = padroes[:, 0, 0]
-    
+
     # Itera sobre todas as células da matriz_coeficientes
     for linha in range(linhas):
         for coluna in range(colunas):
