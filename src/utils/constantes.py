@@ -12,6 +12,6 @@ class Constantes:
     - ITERACOES_ENTRE_RENDERIZACAO: Número de iterações entre cada renderização durante a execução.
     """
     FPS_PADRAO = 30
-    TAMANHO_PADRAO_VIDEO = 15
+    TAMANHO_PADRAO_VIDEO = 30
     ALTURA_PADRAO_VIDEO = 1000
     ITERACOES_ENTRE_RENDERIZACAO = 15
