@@ -1,7 +1,8 @@
 import numpy as np
 
 from src.funcao_onda import FuncaoOnda
-from src.algoritmo import observe, propague, EstadoOnda
+from src.algoritmo import EstadoOnda
+from src.interface import observe, propague
 from src.utils import (
     converter_coeficientes_para_imagem,
     barra_progresso,
@@ -75,9 +76,7 @@ def gerar_mapa_com_padrao(
     while status != EstadoOnda.COLAPSADA:
         iteration += 1
         # Observa e colapsa a onda
-        min_entropy_pos, funcao_onda.matriz_coeficientes, status = observe(
-            funcao_onda.matriz_coeficientes, funcao_onda.frequencias
-        )
+        pos_min_entropia, funcao_onda.matriz_coeficientes, status = observe(funcao_onda)
 
         if status == EstadoOnda.CONTRADICAO:
             print(MENSAGEM_CONTRADICAO_ENCONTRADA)
@@ -126,9 +125,4 @@ def gerar_mapa_com_padrao(
             )
 
         # Propagar onda
-        funcao_onda.matriz_coeficientes = propague(
-            min_entropy_pos,
-            funcao_onda.matriz_coeficientes,
-            funcao_onda.regras,
-            funcao_onda.direcoes,
-        )
+        funcao_onda.matriz_coeficientes = propague(pos_min_entropia, funcao_onda)

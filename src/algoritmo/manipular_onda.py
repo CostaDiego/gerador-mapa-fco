@@ -7,6 +7,98 @@ import numpy as np
 from .estado_onda import EstadoOnda
 
 
+def propague_algoritmo(
+    pos_min_entropia: Tuple[int, int],
+    matriz_coeficientes: np.ndarray,
+    regras: List[Dict[Tuple[int, int], Set[int]]],
+    direcoes: List[Tuple[int, int]],
+) -> np.ndarray:
+    """
+    Esta função executa a parte de propagação do algoritmo de função de colapso de onda. Após colapsar uma célula
+    em 'observe', esta função irá propagar essa mundaça para todas as células relevantes
+
+    Parametros:
+    - pos_min_entropia: Tupla de inteiros representando a posição da célula que foi colapsada em 'observe'.
+    - matriz_coeficientes: A matriz de coeficientes representando o estado da onda.
+    - regras: Uma lista de dicionários, onde cada dicionário representa um padrão e contém um mapeamento
+    de direções para um conjunto de padrões possíveis na direção do padrão do dicionario.
+    - direcoes: Uma lista de tuplas de inteiros representando as direções nas quais a célula está sendo propagada.
+
+    Retorna:
+    - NumPy Array: a matriz de coeficientes atualizada, após a propagação.
+    """
+    # Cria uma fila de posições de células a serem atualizadas
+    fila_propagacao = queue.Queue()
+    fila_propagacao.put(pos_min_entropia)
+
+    while not fila_propagacao.empty():
+        celula = fila_propagacao.get()
+
+        # Em todas as direções a partir da célula
+        for direcao in direcoes:
+            pos_celula_adjacente = celula[0] + direcao[0], celula[1] + direcao[1]
+
+            # Se a célula adjacente não foi colapsada, propague
+            if na_matriz(
+                pos_celula_adjacente, matriz_coeficientes.shape
+            ) and not celula_colapsada(matriz_coeficientes, pos_celula_adjacente):
+                celula_atualizada = propagar_celula(
+                    celula, direcao, matriz_coeficientes, regras
+                )
+
+                # Se a propagação da célula adjacente mudou a onda, atualiza a matriz de coeficientes
+                if not np.array_equal(
+                    matriz_coeficientes[pos_celula_adjacente], celula_atualizada
+                ):
+                    matriz_coeficientes[pos_celula_adjacente] = celula_atualizada
+
+                    # Se a célula adjacente não está na fila de propagação, addiciona ela
+                    if pos_celula_adjacente not in fila_propagacao.queue:
+                        fila_propagacao.put(pos_celula_adjacente)
+    return matriz_coeficientes
+
+
+def observe_algoritmo(
+    matriz_coeficientes: np.ndarray, frequencias: List[int]
+) -> Tuple[Tuple[int, int], np.ndarray, type[EstadoOnda]]:
+    """
+    Esta função realiza a fase de 'observar' do algoritmode função do colapso de onda. Procura uma célula com entropia
+    mínima e a colapsa com base em possíveis padrões da célula e suas frequências.
+
+    Parametros:
+    - matriz_coeficientes: A matriz de coeficientes representando o estado da onda.
+    - frequencias: Uma lista de inteiros representando a frequência de cada padrão dentro da imagem de entrada.
+
+    Retorna:
+    - Uma tupla: A tupla contém:
+        1. Uma tupla de inteiros representando a posição da célula com a menor entropia.
+        2. A matriz de coeficientes atualizada representando o estado da onda.
+        3. Um 'EstadoOnda' representando o estado da função de onda.
+    """
+    # Se contradição for encontrada
+    if np.any(~np.any(matriz_coeficientes, axis=2)):
+        return (-1, -1), matriz_coeficientes, EstadoOnda.CONTRADICAO
+
+    # Calcula a posição da célula com a menor entropia
+    pos_min_entropia_x, pos_min_entropia_y, status = coordenadas_celula_minima_entropia(
+        matriz_coeficientes, frequencias
+    )
+    pos_min_entropia = (pos_min_entropia_x, pos_min_entropia_y)
+
+    if status == EstadoOnda.COLAPSADA:
+        return (
+            (pos_min_entropia_x, pos_min_entropia_y),
+            matriz_coeficientes,
+            EstadoOnda.COLAPSADA,
+        )
+
+    # Colapsa a célula na pos_min_entropia
+    matriz_coeficientes = colapse_celula(
+        matriz_coeficientes, frequencias, pos_min_entropia
+    )
+    return pos_min_entropia, matriz_coeficientes, EstadoOnda.EM_ANDAMENTO
+
+
 def coordenadas_celula_minima_entropia(
     matriz_coeficientes: np.ndarray, frequencias: List[int]
 ) -> Tuple[int, int, type[EstadoOnda]]:
@@ -116,98 +208,6 @@ def na_matriz(posicao: Tuple[int, int], dimensao: Tuple[int, ...]) -> bool:
     - Booelano: Indica se a posição dada está dentro dos limites da matriz
     """
     return 0 <= posicao[0] < dimensao[0] and 0 <= posicao[1] < dimensao[1]
-
-
-def propague(
-    pos_min_entropia: Tuple[int, int],
-    matriz_coeficientes: np.ndarray,
-    regras: List[Dict[Tuple[int, int], Set[int]]],
-    direcoes: List[Tuple[int, int]],
-) -> np.ndarray:
-    """
-    Esta função executa a parte de propagação do algoritmo de função de colapso de onda. Após colapsar uma célula
-    em 'observe', esta função irá propagar essa mundaça para todas as células relevantes
-
-    Parametros:
-    - pos_min_entropia: Tupla de inteiros representando a posição da célula que foi colapsada em 'observe'.
-    - matriz_coeficientes: A matriz de coeficientes representando o estado da onda.
-    - regras: Uma lista de dicionários, onde cada dicionário representa um padrão e contém um mapeamento
-    de direções para um conjunto de padrões possíveis na direção do padrão do dicionario.
-    - direcoes: Uma lista de tuplas de inteiros representando as direções nas quais a célula está sendo propagada.
-
-    Retorna:
-    - NumPy Array: a matriz de coeficientes atualizada, após a propagação.
-    """
-    # Cria uma fila de posições de células a serem atualizadas
-    fila_propagacao = queue.Queue()
-    fila_propagacao.put(pos_min_entropia)
-
-    while not fila_propagacao.empty():
-        celula = fila_propagacao.get()
-
-        # Em todas as direções a partir da célula
-        for direcao in direcoes:
-            pos_celula_adjacente = celula[0] + direcao[0], celula[1] + direcao[1]
-
-            # Se a célula adjacente não foi colapsada, propague
-            if na_matriz(
-                pos_celula_adjacente, matriz_coeficientes.shape
-            ) and not celula_colapsada(matriz_coeficientes, pos_celula_adjacente):
-                celula_atualizada = propagar_celula(
-                    celula, direcao, matriz_coeficientes, regras
-                )
-
-                # Se a propagação da célula adjacente mudou a onda, atualiza a matriz de coeficientes
-                if not np.array_equal(
-                    matriz_coeficientes[pos_celula_adjacente], celula_atualizada
-                ):
-                    matriz_coeficientes[pos_celula_adjacente] = celula_atualizada
-
-                    # Se a célula adjacente não está na fila de propagação, addiciona ela
-                    if pos_celula_adjacente not in fila_propagacao.queue:
-                        fila_propagacao.put(pos_celula_adjacente)
-    return matriz_coeficientes
-
-
-def observe(
-    matriz_coeficientes: np.ndarray, frequencias: List[int]
-) -> Tuple[Tuple[int, int], np.ndarray, type[EstadoOnda]]:
-    """
-    Esta função realiza a fase de 'observar' do algoritmode função do colapso de onda. Procura uma célula com entropia
-    mínima e a colapsa com base em possíveis padrões da célula e suas frequências.
-
-    Parametros:
-    - matriz_coeficientes: A matriz de coeficientes representando o estado da onda.
-    - frequencias: Uma lista de inteiros representando a frequência de cada padrão dentro da imagem de entrada.
-
-    Retorna:
-    - Uma tuple: A tupla contém:
-        1. Uma tupla de inteiros representando a posição da célula com a menor entropia.
-        2. A matriz de coeficientes atualizada representando o estado da onda.
-        3. Um 'EstadoOnda' representando o estado da função de onda.
-    """
-    # Se contradição for encontrada
-    if np.any(~np.any(matriz_coeficientes, axis=2)):
-        return (-1, -1), matriz_coeficientes, EstadoOnda.CONTRADICAO
-
-    # Calcula a posição da célula com a menor entropia
-    pos_min_entropia_x, pos_min_entropia_y, status = coordenadas_celula_minima_entropia(
-        matriz_coeficientes, frequencias
-    )
-    pos_min_entropia = (pos_min_entropia_x, pos_min_entropia_y)
-
-    if status == EstadoOnda.COLAPSADA:
-        return (
-            (pos_min_entropia_x, pos_min_entropia_y),
-            matriz_coeficientes,
-            EstadoOnda.COLAPSADA,
-        )
-
-    # Colapsa a célula na pos_min_entropia
-    matriz_coeficientes = colapse_celula(
-        matriz_coeficientes, frequencias, pos_min_entropia
-    )
-    return pos_min_entropia, matriz_coeficientes, EstadoOnda.EM_ANDAMENTO
 
 
 def colapse_celula(
