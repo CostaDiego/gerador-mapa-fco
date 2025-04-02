@@ -1,8 +1,7 @@
 import numpy as np
 
 from src.funcao_onda import FuncaoOnda
-from src.iteracao import observe, propagate
-from src.estado_onda import EstadoOnda
+from src.algoritmo import observe, propague, EstadoOnda
 from src.utils import (
     converter_coeficientes_para_imagem,
     barra_progresso,
@@ -118,13 +117,16 @@ def gerar_mapa_com_padrao(
             )
 
         # Se render_iteracoes é True e ITERACOES_ENTRE_RENDERIZACAO passaram desde o último render, renderizar essa iteração
-        if render_iteracoes and iteration % Constantes.ITERACOES_ENTRE_RENDERIZACAO == 0:
+        if (
+            render_iteracoes
+            and iteration % Constantes.ITERACOES_ENTRE_RENDERIZACAO == 0
+        ):
             mostrar_iteracao(
                 iteration, funcao_onda.padroes, funcao_onda.matriz_coeficientes
             )
 
         # Propagar onda
-        funcao_onda.matriz_coeficientes = propagate(
+        funcao_onda.matriz_coeficientes = propague(
             min_entropy_pos,
             funcao_onda.matriz_coeficientes,
             funcao_onda.regras,
